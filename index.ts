@@ -1,6 +1,9 @@
-// bot/index.ts
+// @ts-nocheck
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+// ==========================================
+// 1. KONFIGURASI & PEMBOLEHUBAH PERSEKITARAN
+// ==========================================
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN") ?? "";
@@ -9,9 +12,9 @@ const APP_URL = "https://erom.tech4ag.my";
 const CH_URL = Deno.env.get("EROM_CHANNEL_URL") ?? "";
 
 const TELEGRAM_API = `https://api.telegram.org/bot${BOT_TOKEN}`;
-
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
+// Senarai bilik mestilah SAMA SEBIJI dengan yang ada di laman web
 const ROOM_OPTIONS = [
   "PKG Ganun - Bilik Kursus (30 orang)",
   "PKG Melekek - Bilik Kuliah 1 (20 orang)",
@@ -28,8 +31,10 @@ const ROOM_OPTIONS = [
   "Kafeteria PPDAG (30 orang)"
 ];
 
-// === TELEGRAM HELPERS ===
-async function tgCall(method: string, payload: any) {
+// ==========================================
+// 2. FUNGSI PEMBANTU TELEGRAM (API HELPERS)
+// ==========================================
+async function tgCall(method, payload) {
   try {
     const res = await fetch(`${TELEGRAM_API}/${method}`, {
       method: "POST",
@@ -38,11 +43,11 @@ async function tgCall(method: string, payload: any) {
     });
     return await res.json();
   } catch (e) {
-    console.error("TG Call Error:", e);
+    console.error("Telegram API Error:", e);
   }
 }
 
-async function sendMessage(chatId: string | number, text: string, extra = {}) {
+async function sendMessage(chatId, text, extra = {}) {
   await tgCall("sendMessage", {
     chat_id: chatId,
     text,
@@ -51,11 +56,11 @@ async function sendMessage(chatId: string | number, text: string, extra = {}) {
   });
 }
 
-async function answerCallback(id: string, text = "") {
+async function answerCallback(id, text = "") {
   await tgCall("answerCallbackQuery", { callback_query_id: id, text });
 }
 
-async function editMarkup(chatId: number, messageId: number) {
+async function editMarkup(chatId, messageId) {
   await tgCall("editMessageReplyMarkup", {
     chat_id: chatId,
     message_id: messageId,
@@ -63,12 +68,14 @@ async function editMarkup(chatId: number, messageId: number) {
   });
 }
 
-// === KEYBOARDS ===
+// ==========================================
+// 3. KEYBOARDS (BUTANG)
+// ==========================================
 function startKeyboard() {
   return {
     inline_keyboard: [
-      [{ text: "Pengguna", callback_data: "role:user" }],
-      [{ text: "PIC Bilik", callback_data: "role:pic" }]
+      [{ text: "Pengguna (Info)", callback_data: "role:user" }],
+      [{ text: "PIC Bilik (Daftar)", callback_data: "role:pic" }]
     ]
   };
 }
@@ -79,23 +86,28 @@ function closeKeyboard() {
   };
 }
 
-function roomsKeyboard(rooms: string[]) {
+function roomsKeyboard(rooms) {
+  // Potong nama bilik jika terlalu panjang untuk callback_data (limit 64 bytes)
   const rows = rooms.map(r => [{ text: r, callback_data: `pick:${r.substring(0, 50)}` }]);
   rows.push([{ text: "Tutup", callback_data: "close" }]);
   return { inline_keyboard: rows };
 }
 
-// === LOGIK DATABASE (erom_pic) ===
+// ==========================================
+// 4. LOGIK DATABASE (erom_pic)
+// ==========================================
 async function getTakenRooms() {
   const { data, error } = await supabase.from("erom_pic").select("bilik");
   if (error || !data) return new Set();
-  return new Set(data.map((r: any) => r.bilik));
+  return new Set(data.map(r => r.bilik));
 }
 
-async function assignRoom(telegramId: number, username: string | undefined, roomPart: string) {
+async function assignRoom(telegramId, username, roomPart) {
+  // Cari nama penuh bilik berdasarkan serpihan nama
   const fullRoomName = ROOM_OPTIONS.find(r => r.startsWith(roomPart));
-  if (!fullRoomName) return { ok: false, reason: "Bilik tidak ditemui." };
+  if (!fullRoomName) return { ok: false, reason: "Bilik tidak ditemui dalam sistem." };
 
+  // Semak jika bilik sudah ada PIC lain
   const { data: existing, error: errExist } = await supabase
     .from("erom_pic")
     .select("bilik")
@@ -103,8 +115,9 @@ async function assignRoom(telegramId: number, username: string | undefined, room
     .limit(1);
 
   if (errExist) return { ok: false, reason: errExist.message };
-  if (existing && existing.length > 0) return { ok: false, reason: "Bilik ini telah ada PIC." };
+  if (existing && existing.length > 0) return { ok: false, reason: "Maaf, bilik ini sudah mempunyai PIC." };
 
+  // Daftar PIC baru
   const { error } = await supabase.from("erom_pic").insert([{
     telegram_id: telegramId,
     telegram_username: username ?? null,
@@ -116,33 +129,58 @@ async function assignRoom(telegramId: number, username: string | undefined, room
   return { ok: true, roomName: fullRoomName };
 }
 
-async function listMyRooms(telegramId: number) {
-  const { data, error } = await supabase.from("erom_pic").select("bilik").eq("telegram_id", telegramId);
+async function listMyRooms(telegramId) {
+  const { data, error } = await supabase
+    .from("erom_pic")
+    .select("bilik")
+    .eq("telegram_id", telegramId);
+  
   if (error || !data) return [];
-  return data.map((r: any) => r.bilik);
+  return data.map(r => r.bilik);
 }
 
-// === NOTIFIKASI TEMPAHAN KE CHANNEL ===
-async function sendBookingNotification(record: any) {
-  if (!CHANNEL_ID) {
-    console.error("Tiada CHANNEL_ID disetkan!");
-    return;
+// ==========================================
+// 5. SISTEM NOTIFIKASI (CHANNEL & DM)
+// ==========================================
+async function sendBookingNotification(payload) {
+  // Jika tiada Channel ID, abaikan
+  if (!CHANNEL_ID) return;
+
+  const record = payload.record;
+  const eventType = payload.type; // 'INSERT' atau 'UPDATE'
+  
+  // Tentukan Tajuk & Status berdasarkan jenis event
+  let title = "📢 TEMPAHAN BARU";
+  let statusEmoji = "🟢";
+  
+  if (eventType === 'UPDATE') {
+    if (record.status === 'DIBATALKAN') {
+      title = "❌ TEMPAHAN DIBATALKAN";
+      statusEmoji = "🔴";
+    } else {
+      title = "✏️ TEMPAHAN DIKEMASKINI";
+      statusEmoji = "🟡";
+    }
   }
 
-  // Cari Username PIC jika ada
-  let picInfo = "Tiada PIC";
+  // Cari Maklumat PIC Bilik ini
+  let picUsername = "Tiada PIC";
+  let picId = null;
+
   const { data: picData } = await supabase
     .from("erom_pic")
-    .select("telegram_username")
+    .select("telegram_username, telegram_id")
     .eq("bilik", record.room)
     .single();
 
-  if (picData?.telegram_username) {
-    picInfo = `@${picData.telegram_username}`;
+  if (picData) {
+    if (picData.telegram_username) picUsername = `@${picData.telegram_username}`;
+    if (picData.telegram_id) picId = picData.telegram_id;
   }
 
-  const message = `
-📢 <b>TEMPAHAN BARU DITERIMA</b>
+  // Format Mesej
+  const msg = `
+<b>${title}</b> ${statusEmoji}
 
 🏛 <b>Bilik:</b> ${record.room}
 📅 <b>Tarikh:</b> ${record.booking_date}
@@ -150,35 +188,53 @@ async function sendBookingNotification(record: any) {
 📝 <b>Tujuan:</b> ${record.purpose}
 👤 <b>Penempah:</b> ${record.booker_name}
 🏢 <b>Sektor:</b> ${record.sector}
-👮 <b>PIC Bilik:</b> ${picInfo}
+👮 <b>PIC Bilik:</b> ${picUsername}
 
-<i>Sila semak aplikasi untuk maklumat lanjut.</i>
+<i>Sila layari <a href="${APP_URL}">eROM Web</a> untuk maklumat lanjut.</i>
 `;
 
-  await sendMessage(CHANNEL_ID, message);
-}
+  // A. Hantar ke Channel Utama (Public Log)
+  await sendMessage(CHANNEL_ID, msg);
 
-// === HANDLERS ===
-async function handleStart(chatId: number) {
-  await sendMessage(chatId, "<b>eROM@AG Bot</b>\nSelamat datang. Sila pilih peranan anda:", { reply_markup: startKeyboard() });
-}
-
-async function handleUserInfo(chatId: number) {
-  const text = `ℹ️ <b>Info Sistem</b>\n\n• Aplikasi Web: ${APP_URL}\n• Saluran Notifikasi: ${CH_URL}`;
-  await sendMessage(chatId, text, { reply_markup: closeKeyboard() });
-}
-
-async function handleAvailableRooms(chatId: number) {
-  const taken = await getTakenRooms();
-  const available = ROOM_OPTIONS.filter(r => !taken.has(r));
-  if (available.length === 0) {
-    await sendMessage(chatId, "Semua bilik sudah mempunyai PIC.", { reply_markup: closeKeyboard() });
-  } else {
-    await sendMessage(chatId, "Sila pilih bilik untuk didaftarkan sebagai PIC:", { reply_markup: roomsKeyboard(available) });
+  // B. Hantar DM ke PIC (Personal Alert) - Hanya jika PIC wujud
+  if (picId) {
+    const privateMsg = `🔔 <b>Notifikasi PIC</b>\n\nSatu aktiviti telah berlaku pada bilik jagaan anda:\n${msg}\n\n<i>Sila pantau tempahan ini.</i>`;
+    await sendMessage(picId, privateMsg);
   }
 }
 
-async function handlePickRoom(cb: any) {
+// ==========================================
+// 6. PENGENDALI ARAHAN (HANDLERS)
+// ==========================================
+async function handleStart(chatId) {
+  await sendMessage(chatId, "<b>eROM@AG Bot</b>\nSelamat datang. Sila pilih peranan anda:", {
+    reply_markup: startKeyboard()
+  });
+}
+
+async function handleUserInfo(chatId) {
+  const text = `ℹ️ <b>Info Sistem</b>\n\n• Aplikasi Web: ${APP_URL}\n• Saluran Notifikasi: ${CH_URL}`;
+  await sendMessage(chatId, text, {
+    reply_markup: closeKeyboard()
+  });
+}
+
+async function handleAvailableRooms(chatId) {
+  const taken = await getTakenRooms();
+  const available = ROOM_OPTIONS.filter(r => !taken.has(r));
+
+  if (available.length === 0) {
+    await sendMessage(chatId, "Semua bilik sudah mempunyai PIC.", {
+      reply_markup: closeKeyboard()
+    });
+  } else {
+    await sendMessage(chatId, "Sila pilih bilik untuk didaftarkan sebagai PIC:", {
+      reply_markup: roomsKeyboard(available)
+    });
+  }
+}
+
+async function handlePickRoom(cb) {
   const chatId = cb.message.chat.id;
   const messageId = cb.message.message_id;
   const user = cb.from;
@@ -189,51 +245,72 @@ async function handlePickRoom(cb: any) {
   if (res.ok) {
     await answerCallback(cb.id, "Berjaya didaftarkan!");
     await editMarkup(chatId, messageId);
+    
     const mine = await listMyRooms(user.id);
-    const text = `✅ <b>Pendaftaran Berjaya</b>\n\nAnda kini PIC untuk:\n<b>${res.roomName}</b>\n\nSenarai bilik anda:\n${mine.map((x: string) => `• ${x}`).join("\n")}`;
+    const text = `✅ <b>Pendaftaran Berjaya</b>\n\nAnda kini PIC untuk:\n<b>${res.roomName}</b>\n\nSenarai bilik anda:\n${mine.map(x => `• ${x}`).join("\n")}`;
+    
     await sendMessage(chatId, text, { reply_markup: closeKeyboard() });
   } else {
     await answerCallback(cb.id, res.reason ?? "Gagal.");
   }
 }
 
-async function handleStatus(msg: any) {
+async function handleStatus(msg) {
   const chatId = msg.chat.id;
   const mine = await listMyRooms(msg.from.id);
+  
   if (mine.length === 0) {
-    await sendMessage(chatId, "Anda belum mendaftar sebagai PIC mana-mana bilik.", { reply_markup: closeKeyboard() });
+    await sendMessage(chatId, "Anda belum mendaftar sebagai PIC mana-mana bilik.", {
+      reply_markup: closeKeyboard()
+    });
   } else {
-    const text = "📋 <b>Status PIC</b>\n\nBilik di bawah kendalian anda:\n" + mine.map((x: string) => `• ${x}`).join("\n");
-    await sendMessage(chatId, text, { reply_markup: closeKeyboard() });
+    const text = "📋 <b>Status PIC</b>\n\nBilik di bawah kendalian anda:\n" + mine.map(x => `• ${x}`).join("\n");
+    await sendMessage(chatId, text, {
+      reply_markup: closeKeyboard()
+    });
   }
 }
 
-// === SERVER UTAMA (DENO) ===
+// ==========================================
+// 7. SERVER UTAMA (DENO ENTRY POINT)
+// ==========================================
 Deno.serve(async (req) => {
-  if (req.method !== "POST") return new Response("Bot Active");
+  // Hanya terima method POST (Telegram & Supabase hantar POST)
+  if (req.method !== "POST") return new Response("Bot Active (Root)");
 
   try {
     const payload = await req.json();
 
-    // 1. JIKA DARI SUPABASE (WEBHOOK)
-    if (payload.type === 'INSERT' && payload.table === 'erom_bookings') {
-      await sendBookingNotification(payload.record);
+    // --- SENARIO A: ISYARAT DARI SUPABASE (WEBHOOK) ---
+    // Menyemak jika payload ada 'record' dan 'table' == 'erom_bookings'
+    if ((payload.type === 'INSERT' || payload.type === 'UPDATE') && payload.table === 'erom_bookings') {
+      console.log(`Menerima Webhook Supabase: ${payload.type}`);
+      await sendBookingNotification(payload);
       return new Response("Notified");
     }
 
-    // 2. JIKA DARI TELEGRAM (USER INTERACTION)
+    // --- SENARIO B: ISYARAT DARI TELEGRAM (USER) ---
+    
+    // 1. Mesej Teks (/start, /bilik, /status)
     if (payload.message) {
       const msg = payload.message;
       const chatId = msg.chat.id;
       const text = msg.text ?? "";
 
-      if (text.startsWith("/start")) await handleStart(chatId);
-      else if (text.startsWith("/bilik")) await handleAvailableRooms(chatId);
-      else if (text.startsWith("/status")) await handleStatus(msg);
-      else await handleStart(chatId);
+      if (text.startsWith("/start")) {
+        await handleStart(chatId);
+      } else if (text.startsWith("/bilik")) {
+        await handleAvailableRooms(chatId);
+      } else if (text.startsWith("/status")) {
+        await handleStatus(msg);
+      } else {
+        // Default response jika teks tidak dikenali
+        await handleStart(chatId);
+      }
       return new Response("OK");
     }
     
+    // 2. Callback Query (Butang ditekan)
     if (payload.callback_query) {
       const cb = payload.callback_query;
       const data = cb.data ?? "";
@@ -255,7 +332,7 @@ Deno.serve(async (req) => {
     }
 
   } catch (e) {
-    console.error("Error:", e);
+    console.error("Server Error:", e);
   }
 
   return new Response("OK");
