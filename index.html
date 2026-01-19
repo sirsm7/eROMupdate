@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  
+  <!-- PENTING: Konfigurasi PWA (Web App) -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#1e3a8a">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="eROM@AG">
+  <link rel="apple-touch-icon" href="assets/img/logo-kpm.png">
+
+  <title>eROM@AG — Sistem Pengurusan Tempahan Bilik PPD Alor Gajah</title>
+  
+  <link rel="icon" href="assets/img/logo-kpm.png" type="image/png" />
+  
+  <!-- Fon Oswald -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;700&display=swap" rel="stylesheet">
+
+  <!-- SweetAlert2 -->
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+  <!-- Gaya utama -->
+  <link rel="stylesheet" href="./assets/css/style.css">
+</head>
+<body>
+  <div class="wrap">
+    <!-- HEADER BARU DENGAN LOGO -->
+    <h1>
+      <img src="assets/img/logo-kpm.png" alt="Logo KPM" class="header-logo">
+      eROM@AG — Sistem Pengurusan Tempahan Bilik PPD Alor Gajah
+    </h1>
+
+    <div class="tabs">
+      <button id="tabTempahanBtn" class="tabbtn active">Tempahan</button>
+      <button id="tabKalendarBtn" class="tabbtn">Rumusan Tempahan</button>
+      <button id="tabAdminBtn" class="tabbtn">Pentadbir</button>
+    </div>
+
+    <!-- Tab Tempahan -->
+    <section id="tabTempahan" class="tabpane active">
+      <div class="card toolbar">
+        <div>
+          <label class="small req">Pilih Bilik</label><br>
+          <select id="roomSelect" required>
+            <option value="">Sila Pilih Bilik</option>
+          </select>
+        </div>
+
+        <div class="monthnav" style="justify-self:end">
+          <button class="btn ghost" id="btnPrev">&lt; Bulan Sebelum</button>
+          <div class="small" id="monthLabel" style="min-width:160px;text-align:center;font-weight:600;color:#111827"></div>
+          <button class="btn ghost" id="btnNext">Bulan Seterusnya &gt;</button>
+        </div>
+
+        <div style="text-align:right">
+          <button class="btn secondary" id="btnRefresh">Segar Semula</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="legend">
+          <span class="dot green"></span><span class="small">Tiada tempahan</span>
+          <span class="dot orange"></span><span class="small">Separa Penuh</span>
+          <span class="dot red"></span><span class="small">Penuh</span>
+          <span class="dot disabled"></span><span class="small">Hujung Minggu / Tarikh Lampau</span>
+        </div>
+
+        <div class="calendar">
+          <div class="weekday">
+            <div>Isn</div><div>Sel</div><div>Rab</div><div>Kha</div><div>Jum</div><div>Sab</div><div>Aha</div>
+          </div>
+          <div class="grid" id="grid"></div>
+        </div>
+
+        <div class="small" id="noRoomHint" style="display:none;margin-top:6px">
+          Sila pilih bilik untuk melihat kalendar tempahan.
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:10px">
+        <div class="row" style="justify-content:space-between">
+          <div class="switch" title="Tempahan berturut">
+            <button id="toggleRangeOff" class="active" type="button">1 Hari</button>
+            <button id="toggleRangeOn" type="button">Berturut</button>
+          </div>
+          <div id="rangeCounter" class="counter" style="display:none">
+            Akan ditempah: 0 hari bekerja
+          </div>
+        </div>
+
+        <div class="row" style="margin-top:10px; gap:10px; flex-wrap:wrap">
+          <div>
+            <label class="small req">Tarikh Dipilih</label><br>
+            <input id="pickedDate" type="date" required>
+          </div>
+
+          <div id="fromDateWrap" style="display:none">
+            <label class="small req">Tarikh Dari</label><br>
+            <input id="fromDate" type="date">
+          </div>
+
+          <div id="toDateWrap" style="display:none">
+            <label class="small req">Tarikh Hingga</label><br>
+            <input id="toDate" type="date">
+          </div>
+
+          <div>
+            <label class="small req">Masa Mula (≥ 08:00)</label><br>
+            <input id="startTime" type="time" min="08:00" max="17:00" step="1800" required>
+          </div>
+
+          <div>
+            <label class="small req">Masa Tamat (≤ 17:00)</label><br>
+            <input id="endTime" type="time" min="08:00" max="17:00" step="1800" required>
+          </div>
+
+          <div>
+            <label class="small req">Kategori</label><br>
+            <select id="category" required></select>
+          </div>
+
+          <div style="min-width:320px;flex:1">
+            <label class="small req">Tujuan / Ringkasan</label><br>
+            <input
+              id="note"
+              type="text"
+              placeholder="Contoh: Taklimat SPI Bil."
+              required
+              minlength="3"
+              maxlength="200"
+              oninput="this.value=this.value.trimStart()"
+            >
+          </div>
+
+          <div>
+            <label class="small req">Sektor</label><br>
+            <select id="sektor" required></select>
+          </div>
+
+          <div>
+            <label class="small req">Nama Penempah</label><br>
+            <select id="nama" required disabled>
+              <option value="">— Sila pilih sektor dahulu —</option>
+            </select>
+          </div>
+
+          <div style="align-self:end">
+            <button class="btn" id="btnBook">Rekod Tempahan</button>
+          </div>
+        </div>
+
+        <div class="small" style="margin-top:8px">
+          Waktu operasi: Isnin–Jumaat, 08:00–17:00. Tempahan hujung minggu dan tarikh lampau tidak dibenarkan.
+        </div>
+      </div>
+    </section>
+
+    <!-- Tab Rumusan -->
+    <section id="tabKalendar" class="tabpane">
+      <div class="card toolbar">
+        <div>
+          <div class="small" style="font-weight:600">Rumusan Semua Bilik (Read-only)</div>
+          <div style="margin-top:4px;">
+            <label class="small">Tapis Bilik:</label>
+            <select id="ovRoomFilter" style="padding:4px 8px; font-size:0.9rem; border-radius:8px;">
+              <option value="">— Semua Bilik —</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="monthnav" style="justify-self:end">
+          <button class="btn ghost" id="ovPrev">&lt; Bulan Sebelum</button>
+          <div class="small" id="ovMonthLabel" style="min-width:160px;text-align:center;font-weight:600;color:#111827"></div>
+          <button class="btn ghost" id="ovNext">Bulan Seterusnya &gt;</button>
+        </div>
+
+        <div class="switch">
+          <button id="btnViewCalendar" class="active" type="button">Kalendar</button>
+          <button id="btnViewTable" type="button">Jadual</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="legend">
+          <span class="dot red"></span><span class="small">Merah = Penuh</span>
+          <span class="dot orange"></span><span class="small">Jingga = Separa Penuh</span>
+          <span class="small" style="margin-left:auto">Bilik tanpa tempahan tidak dipaparkan</span>
+        </div>
+
+        <div id="ovCalendarWrap">
+          <div class="calendar">
+            <div class="weekday">
+              <div>Isn</div><div>Sel</div><div>Rab</div><div>Kha</div><div>Jum</div><div>Sab</div><div>Aha</div>
+            </div>
+            <div class="grid" id="ovGrid"></div>
+          </div>
+
+          <div id="ovSummaryWrap" style="display:none">
+            <div id="ovSummaryList" class="small"></div>
+          </div>
+        </div>
+
+        <div id="ovTableWrap" style="display:none">
+          <table>
+            <thead>
+              <tr>
+                <th style="width:120px">Tarikh</th>
+                <th style="width:110px">Masa</th>
+                <th>Bilik</th>
+                <th>Tujuan</th>
+                <th style="width:200px">Penempah</th>
+              </tr>
+            </thead>
+            <tbody id="ovTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- Tab Admin -->
+    <section id="tabAdmin" class="tabpane">
+      <div class="card">
+        <div id="adminLoginBox">
+          <div class="row" style="justify-content:space-between">
+            <div style="font-weight:600">Panel Pentadbir</div>
+            <div class="small" id="adminWho">Belum log masuk</div>
+          </div>
+
+          <div class="row" style="margin-top:8px; gap:12px">
+            <button class="btn ghost" id="btnAdminLogin">Log Masuk</button>
+          </div>
+        </div>
+
+        <div id="adminPanel">
+          <div class="row" style="justify-content:space-between">
+            <div style="font-weight:600">Panel Pentadbir</div>
+            <div class="small">Akses: Pentadbir</div>
+          </div>
+
+          <div class="row" style="margin-top:8px; gap:12px">
+            <div>
+              <label class="small">Pilih Bilik (Admin)</label><br>
+              <select id="adminRoom">
+                <option value="">Sila Pilih Bilik</option>
+              </select>
+            </div>
+
+            <div style="align-self:end; display:flex; gap:8px">
+              <button class="btn ghost" id="btnAdminLoad">Muat Senarai</button>
+              <button class="btn" id="btnBulkCancel" style="background:#dc2626">Batalkan Terpilih</button>
+            </div>
+          </div>
+
+          <div id="adminList" style="margin-top:10px"></div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- ============================== -->
+  <!-- KONFIG API & SCRIPTS           -->
+  <!-- ============================== -->
+
+  <!-- Tetapkan URL Web App GAS (tukar kepada URL deploy semasa jika perlu) -->
+  <script>
+    window.API_E_ROM_BASE = "https://script.google.com/macros/s/AKfycbxByCNkhvvKjiDLKme8HxxW0JSSR34EeHOyrXs8-epyBkhtL7Xk6AUFzS9lQ058B83K/exec";
+  </script>
+
+  <!-- Pendaftaran Service Worker (Untuk PWA) -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js')
+          .then(reg => console.log('SW berdaftar:', reg.scope))
+          .catch(err => console.log('SW gagal:', err));
+      });
+    }
+  </script>
+
+  <!-- Adapter GAS mesti dimuat sebelum app.js -->
+  <script type="module" src="./src/api/supabaseClient.js"></script>
+
+  <!-- Skrip aplikasi utama -->
+  <script type="module" src="./assets/js/app.js"></script>
+</body>
+</html>
