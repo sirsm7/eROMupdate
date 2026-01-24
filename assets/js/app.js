@@ -7,7 +7,8 @@ const SHOW_PAST_DAYS = false;
 /* ========= Konstanta bilik & kategori ========= */
 const ROOM_OPTIONS = [
   "PKG Ganun - Bilik Kursus (30 orang)",
-  "PKG Melekek - Bilik Kuliah 1 (20 orang)",
+  "PKG Melekek - Bilik Kuliah (25 orang)",      // Nama telah dikemaskini
+  "PKG Melekek - Bilik Mesyuarat (25 orang)",   // Bilik baharu ditambah
   "PKG Masjid Tanah - Bilik Seri Cempaka (24 orang)",
   "PKG Masjid Tanah - Bilik Seri Melur (18 orang)",
   "PKG Masjid Tanah - Bilik Pendidikan Digital (12 orang)",

@@ -1,5 +1,5 @@
-// TUKAR KEPADA v3 UNTUK PAKSA RESET
-const CACHE_NAME = 'erom-ag-v3'; 
+// TUKAR KEPADA v4 UNTUK PAKSA RESET
+const CACHE_NAME = 'erom-ag-v4'; 
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -14,7 +14,7 @@ self.addEventListener('install', (event) => {
   self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      console.log('[SW] Meng-cache aset asas (v3)');
+      console.log('[SW] Meng-cache aset asas (v4)');
       return cache.addAll(ASSETS_TO_CACHE);
     })
   );

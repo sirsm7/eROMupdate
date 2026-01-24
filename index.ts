@@ -17,7 +17,8 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 // Senarai bilik mestilah SAMA SEBIJI dengan yang ada di laman web
 const ROOM_OPTIONS = [
   "PKG Ganun - Bilik Kursus (30 orang)",
-  "PKG Melekek - Bilik Kuliah 1 (20 orang)",
+  "PKG Melekek - Bilik Kuliah (25 orang)",      // Dikemaskini
+  "PKG Melekek - Bilik Mesyuarat (25 orang)",   // Ditambah
   "PKG Masjid Tanah - Bilik Seri Cempaka (24 orang)",
   "PKG Masjid Tanah - Bilik Seri Melur (18 orang)",
   "PKG Masjid Tanah - Bilik Pendidikan Digital (12 orang)",
