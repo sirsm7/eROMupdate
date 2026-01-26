@@ -1,5 +1,5 @@
 // KEMASKINI: VERSI 5 (PAKSA RESET CACHE UNTUK MIGRASI DB)
-const CACHE_NAME = 'erom-ag-v5'; 
+const CACHE_NAME = 'erom-ag-v6'; 
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
