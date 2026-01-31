@@ -8,11 +8,8 @@
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#1e3a8a">
   
-  <!-- Meta tag standard baharu untuk Android/Chrome -->
   <meta name="mobile-web-app-capable" content="yes">
-  <!-- Meta tag legasi untuk iOS (Dikekalkan untuk keserasian) -->
   <meta name="apple-mobile-web-app-capable" content="yes">
-  
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="eROM@AG">
   <link rel="apple-touch-icon" href="assets/img/logo-kpm.png">
@@ -29,21 +26,35 @@
   <!-- SweetAlert2 -->
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
-  <!-- Gaya utama -->
+  <!-- Gaya utama (100% dari erom + extension) -->
   <link rel="stylesheet" href="./assets/css/style.css">
 </head>
 <body>
   <div class="wrap">
-    <!-- HEADER BARU DENGAN LOGO -->
+    <!-- HEADER BARU (DENGAN FLEXBOX CONTAINER UNTUK LOGIN) -->
     <h1>
-      <img src="assets/img/logo-kpm.png" alt="Logo KPM" class="header-logo">
-      eROM@AG — Sistem Pengurusan Tempahan Bilik PPD Alor Gajah
+      <div class="header-flex-container">
+        <!-- KIRI: Logo & Tajuk -->
+        <div class="header-title-group">
+          <img src="assets/img/logo-kpm.png" alt="Logo KPM" class="header-logo">
+          <span>eROM@AG — Sistem Pengurusan Tempahan Bilik PPD Alor Gajah</span>
+        </div>
+
+        <!-- KANAN: Auth Controls -->
+        <div class="auth-controls">
+          <button id="mainLoginBtn" class="btn-login">LOG MASUK</button>
+          <div id="userProfileBadge" class="user-badge">
+            <span id="userRoleTag" class="user-role">USER</span>
+            <span id="userDisplayName">Nama</span>
+          </div>
+        </div>
+      </div>
     </h1>
 
     <div class="tabs">
       <button id="tabTempahanBtn" class="tabbtn active">Tempahan</button>
       <button id="tabKalendarBtn" class="tabbtn">Rumusan Tempahan</button>
-      <button id="tabAdminBtn" class="tabbtn">Pentadbir</button>
+      <button id="tabAdminBtn" class="tabbtn" style="display:none">Pentadbir</button>
     </div>
 
     <!-- Tab Tempahan -->
@@ -88,6 +99,11 @@
       </div>
 
       <div class="card" style="margin-top:10px">
+        <!-- NOTIS LOGIN -->
+        <div id="loginWarning" style="background:#fffbeb; color:#b45309; padding:12px; border-radius:10px; margin-bottom:16px; font-size:0.95rem; display:block; border:1px solid #fcd34d;">
+          ⚠️ Sila <strong>Log Masuk</strong> untuk membuat tempahan baharu.
+        </div>
+
         <div class="row" style="justify-content:space-between">
           <div class="switch" title="Tempahan berturut">
             <button id="toggleRangeOff" class="active" type="button">1 Hari</button>
@@ -98,7 +114,7 @@
           </div>
         </div>
 
-        <div class="row" style="margin-top:10px; gap:10px; flex-wrap:wrap">
+        <div id="bookingFormContainer" class="row" style="margin-top:10px; gap:10px; flex-wrap:wrap">
           <div>
             <label class="small req">Tarikh Dipilih</label><br>
             <input id="pickedDate" type="date" required>
@@ -138,7 +154,6 @@
               required
               minlength="3"
               maxlength="200"
-              oninput="this.value=this.value.trimStart()"
             >
           </div>
 
@@ -155,7 +170,7 @@
           </div>
 
           <div style="align-self:end">
-            <button class="btn" id="btnBook">Rekod Tempahan</button>
+            <button class="btn" id="btnBook" disabled style="display:none">Rekod Tempahan</button>
           </div>
         </div>
 
@@ -219,6 +234,7 @@
                 <th>Bilik</th>
                 <th>Tujuan</th>
                 <th style="width:200px">Penempah</th>
+                <th style="width:80px; text-align:center;">Tindakan</th>
               </tr>
             </thead>
             <tbody id="ovTableBody"></tbody>
@@ -227,57 +243,73 @@
       </div>
     </section>
 
-    <!-- Tab Admin -->
+    <!-- Tab Admin (STRUKTUR DIBINA SEMULA) -->
     <section id="tabAdmin" class="tabpane">
       <div class="card">
-        <div id="adminLoginBox">
-          <div class="row" style="justify-content:space-between">
-            <div style="font-weight:600">Panel Pentadbir</div>
-            <div class="small" id="adminWho">Belum log masuk</div>
-          </div>
-
-          <div class="row" style="margin-top:8px; gap:12px">
-            <button class="btn ghost" id="btnAdminLogin">Log Masuk</button>
-          </div>
+        
+        <!-- Notis jika belum login -->
+        <div id="adminLoginBox" style="display:block; text-align:center; padding:40px;">
+          <h3>Akses Pentadbir</h3>
+          <p class="small">Sila log masuk menggunakan butang di atas sebagai Admin untuk mengakses panel ini.</p>
         </div>
 
-        <div id="adminPanel">
-          <div class="row" style="justify-content:space-between">
-            <div style="font-weight:600">Panel Pentadbir</div>
-            <div class="small">Akses: Pentadbir</div>
+        <div id="adminPanel" style="display:none;">
+          <div class="row" style="justify-content:space-between; margin-bottom:20px;">
+            <div style="font-weight:600; font-size:1.2rem; color:var(--primary);">Panel Pentadbir</div>
+            <div class="small">Status: <span style="color:var(--ok); font-weight:bold;">AKTIF</span></div>
           </div>
 
-          <div class="row" style="margin-top:8px; gap:12px">
-            <div>
-              <label class="small">Pilih Bilik (Admin)</label><br>
-              <select id="adminRoom">
-                <option value="">Sila Pilih Bilik</option>
-              </select>
+          <!-- BAHAGIAN 1: PENGURUSAN USER -->
+          <div class="admin-user-section">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+              <label class="small" style="font-size:0.9rem; margin:0;">Pengurusan Pengguna (Reset Kata Laluan)</label>
+              <button class="btn secondary" id="adminRefreshUsers" style="padding:6px 12px; font-size:0.8rem;">Muat Semula</button>
             </div>
-
-            <div style="align-self:end; display:flex; gap:8px">
-              <button class="btn ghost" id="btnAdminLoad">Muat Senarai</button>
-              <button class="btn" id="btnBulkCancel" style="background:#dc2626">Batalkan Terpilih</button>
+            <div class="scrollable-table">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Nama</th>
+                    <th>Sektor</th>
+                    <th>Email</th>
+                    <th style="text-align:center;">Tindakan</th>
+                  </tr>
+                </thead>
+                <tbody id="adminUserListBody">
+                  <tr><td colspan="4" style="text-align:center; padding:20px;">Sila klik 'Muat Semula' untuk paparkan data.</td></tr>
+                </tbody>
+              </table>
             </div>
           </div>
 
-          <div id="adminList" style="margin-top:10px"></div>
+          <!-- BAHAGIAN 2: PENGURUSAN BILIK -->
+          <div>
+            <label class="small" style="font-size:0.9rem;">Pengurusan Tempahan Bilik</label>
+            <div class="row" style="margin-top:8px; gap:12px; align-items:end;">
+              <div style="flex:1;">
+                <label class="small">Pilih Bilik (Admin)</label><br>
+                <select id="adminRoom" style="width:100%;">
+                  <option value="">Sila Pilih Bilik</option>
+                </select>
+              </div>
+
+              <div style="display:flex; gap:8px">
+                <button class="btn ghost" id="btnAdminLoad">Muat Senarai</button>
+                <button class="btn" id="btnBulkCancel" style="background:var(--bad); color:#fff;">Batalkan Terpilih</button>
+              </div>
+            </div>
+
+            <div id="adminList" style="margin-top:16px; overflow-x:auto;"></div>
+          </div>
+          
         </div>
       </div>
     </section>
   </div>
 
-  <!-- ============================== -->
-  <!-- KONFIG API & SCRIPTS           -->
-  <!-- ============================== -->
-
-  <!-- Tetapkan URL Web App GAS (tukar kepada URL deploy semasa jika perlu) -->
+  <!-- API Scripts -->
   <script>
-    window.API_E_ROM_BASE = "https://script.google.com/macros/s/AKfycbxByCNkhvvKjiDLKme8HxxW0JSSR34EeHOyrXs8-epyBkhtL7Xk6AUFzS9lQ058B83K/exec";
-  </script>
-
-  <!-- Pendaftaran Service Worker (Untuk PWA) -->
-  <script>
+    window.API_E_ROM_BASE = ""; 
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('./sw.js')
@@ -287,10 +319,8 @@
     }
   </script>
 
-  <!-- Adapter GAS mesti dimuat sebelum app.js -->
+  <!-- PENTING: Susunan Fail JS -->
   <script type="module" src="./src/api/supabaseClient.js"></script>
-
-  <!-- Skrip aplikasi utama -->
   <script type="module" src="./assets/js/app.js"></script>
 </body>
 </html>
